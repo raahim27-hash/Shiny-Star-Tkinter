@@ -1,5 +1,5 @@
 """
-Starry Sea Flowing Light (星海流光) - Exact Screen Replica with Ground Bed Waves
+Starry Sea Flowing Light (星海流光) - Exact Particle System & Floor Curls Replica
 """
 
 import tkinter as tk
@@ -15,120 +15,96 @@ DURATION_SECONDS = 30
 TOTAL_FRAMES = FPS * DURATION_SECONDS
 
 ANCHOR_X = WIDTH / 2
-ANCHOR_Y = HEIGHT - 50
+ANCHOR_Y = HEIGHT - 80
 
 HEART_CX = WIDTH / 2
 HEART_CY = HEIGHT * 0.40
-HEART_SCALE = 16.5
+HEART_SCALE = 16.0
 
-N_LINES = 320 # Higher density to fill out the sea floor bed
+N_LINES = 240
+N_SPARKLES = 650  # Significantly increased to make the heart profile unmistakably visible
 
 def heart_xy(t):
+    """The math model defining the crisp boundary silhouette."""
     x = 16 * math.sin(t) ** 3
     y = 13 * math.cos(t) - 5 * math.cos(2 * t) - 2 * math.cos(3 * t) - math.cos(4 * t)
     return HEART_CX + x * HEART_SCALE, HEART_CY - y * HEART_SCALE
 
 class FlowStrand:
-    """Calculates individual strand trajectories, split into heart outlines, 
-
-    sweeping side cascades, and low-lying ground waves beneath the heart."""
+    """Generates fluid threads splitting into fountain paths and rolling curly floor waves."""
     def __init__(self, idx, total):
         self.idx = idx
         self.pct = idx / total
-        
         self.target_t = -math.pi + self.pct * 2 * math.pi
         
-        rnd = random.Random(idx * 999)
-        self.speed = rnd.uniform(0.4, 0.7)
+        rnd = random.Random(idx * 1111)
+        self.speed = rnd.uniform(0.4, 0.8)
         self.phase = rnd.uniform(0, 2 * math.pi)
-        self.wave_amp = rnd.uniform(8, 18)
-        self.brightness = rnd.uniform(110, 230)
+        self.wave_amp = rnd.uniform(10, 25)
+        self.brightness = rnd.uniform(130, 240)
         self.thickness = rnd.choice([1, 1, 2])
         
-        # Categorize into three behavioral groups based on index distribution
-        if 0.28 <= self.pct <= 0.72:
-            self.group = "heart_shell"
-        elif (0.0 <= self.pct < 0.12) or (0.88 < self.pct <= 1.0):
-            self.group = "side_cascade"
+        # Balance distribution: core fountain vs ground curly sea bed
+        if 0.30 <= self.pct <= 0.70:
+            self.group = "fountain"
         else:
-            self.group = "ground_waves"  # The curly waves crawling right beneath the heart
+            self.group = "ground_curls"
 
     def points(self, t_anim):
         pts = []
-        steps = 60
+        steps = 50
         tx, ty = heart_xy(self.target_t)
         
         for i in range(steps + 1):
             prog = i / steps
             
-            if self.group == "heart_shell":
-                # --- HEART WALL TRAJECTORY ---
+            if self.group == "fountain":
+                # Upward fountain trajectory marking the perimeter walls
                 bx = ANCHOR_X + (tx - ANCHOR_X) * prog
                 by = ANCHOR_Y + (ty - ANCHOR_Y) * prog
                 
-                # Push outward to keep the center clean
-                side_push = math.sin(prog * math.pi) * (tx - ANCHOR_X) * 0.22
-                bx += side_push
-                
-                # Fast traveling vertical ripples
-                wave = self.wave_amp * math.sin(prog * 3.5 - t_anim * 6.5 + self.phase) * math.sin(prog * math.pi)
-                bx += wave
-                
-            elif self.group == "side_cascade":
-                # --- WIDE SIDE CURTAIN WAVES ---
-                side_sign = -1.0 if self.pct < 0.5 else 1.0
-                mid_x = ANCHOR_X + side_sign * (WIDTH * 0.26)
-                mid_y = HEART_CY + 50
-                
-                end_x = ANCHOR_X + side_sign * (WIDTH * 0.55) * (0.2 + 0.8 * prog)
-                end_y = ANCHOR_Y - 50 + 40 * math.sin(prog * 2.0 + t_anim * 2.5 + self.phase)
-                
-                if prog < 0.35:
-                    sub_p = prog / 0.35
-                    bx = ANCHOR_X + (mid_x - ANCHOR_X) * sub_p
-                    by = ANCHOR_Y + (mid_y - ANCHOR_Y) * sub_p
-                else:
-                    sub_p = (prog - 0.35) / 0.65
-                    bx = mid_x + (end_x - mid_x) * sub_p
-                    by = mid_y + (end_y - mid_y) * sub_p
-                    
-                by += 15 * math.sin(bx * 0.025 - t_anim * 4.5 + self.phase) * prog
+                # Sinuous sway that opens up the hollow center
+                sway = self.wave_amp * math.sin(prog * 3.0 - t_anim * 6.0 + self.phase) * math.sin(prog * math.pi)
+                bx += sway
                 
             else:
-                # --- GROUND BED WAVES (UNDERNEATH HEART) ---
-                # These loop flatly along the floor, generating curly rolling waves underneath
+                # --- WAVY CURLY LINES ALONG THE GROUND ---
+                # Pushes coordinates outward horizontally from center while keeping them low
                 side_sign = -1.0 if self.pct < 0.5 else 1.0
                 
-                # Span horizontally across the baseline area directly below the tip
-                bx = ANCHOR_X + side_sign * (WIDTH * 0.45) * prog
+                # Dynamic sweep across the sea floor plane
+                bx = ANCHOR_X + side_sign * (WIDTH * 0.48) * prog
+                base_y = ANCHOR_Y + 20
                 
-                # Keep it tightly restricted to the bottom sector
-                base_y = ANCHOR_Y - 20
+                # High frequency sine combinations to produce overlapping organic curls
+                freq1 = 0.03
+                freq2 = 0.07
+                curl_wave = (20 * math.sin(bx * freq1 - t_anim * 4.5 + self.phase) + 
+                             8 * math.cos(bx * freq2 + t_anim * 3.0))
                 
-                # Intense harmonic frequency oscillation to create compressed 'curly' ripples
-                curl_freq = 0.04
-                rolling_wave = 22 * math.sin(bx * curl_freq - t_anim * 5.0 + self.phase)
-                
-                # Dampen near the center anchor so they emerge gracefully
-                fade_in = math.sin(prog * math.pi * 0.5)
-                by = base_y + rolling_wave * fade_in
+                # Fade the wave calculation elegantly near the middle anchor point
+                by = base_y + curl_wave * math.sin(prog * math.pi * 0.5)
                 
             pts.append((bx, by))
             
         return pts
 
 class HeartSparkle:
-    def __init__(self):
+    """Tightly tracks the mathematical heart coordinate to create a sharp, brilliant silhouette."""
+    def __init__(self, idx):
+        self.idx = idx
         self.reset()
 
     def reset(self):
+        # Evenly spread around the boundary perimeter
         self.t = random.uniform(-math.pi, math.pi)
-        self.jitter_x = random.uniform(-12, 12)
-        self.jitter_y = random.uniform(-12, 12)
-        self.r = random.uniform(1.0, 3.2)
+        # Tighter jitter margins to keep the core heart shape flawless and visible
+        self.jitter_x = random.uniform(-6, 6)
+        self.jitter_y = random.uniform(-6, 6)
+        self.r = random.uniform(1.2, 3.5)
         self.phase = random.uniform(0, 2 * math.pi)
-        self.speed = random.uniform(3.0, 6.0)
-        self.life = random.randint(20, 65)
+        self.speed = random.uniform(3.5, 7.0)
+        self.life = random.randint(20, 60)
         self.age = random.randint(0, self.life)
 
     def update(self):
@@ -152,12 +128,12 @@ class HeartApp:
         self.canvas.pack(fill="both", expand=True)
 
         self.strands = [FlowStrand(i, N_LINES) for i in range(N_LINES)]
-        self.heart_sparkles = [HeartSparkle() for _ in range(450)] 
+        self.heart_sparkles = [HeartSparkle(i) for i in range(N_SPARKLES)]
         
         self.background_stars = [
             (random.uniform(0, WIDTH), random.uniform(0, HEIGHT * 0.85),
-             random.uniform(0.4, 1.5), random.uniform(0, 2 * math.pi), random.uniform(0.4, 1.5))
-            for _ in range(130)
+             random.uniform(0.5, 1.5), random.uniform(0, 2 * math.pi), random.uniform(0.5, 1.5))
+            for _ in range(110)
         ]
 
         self.frame_count = 0
@@ -179,22 +155,22 @@ class HeartApp:
         d_flow = ImageDraw.Draw(flow_l)
         d_heart = ImageDraw.Draw(heart_l)
 
-        # 1. Background sky stars
+        # 1. Background Space Particles
         for (x, y, r, phase, speed) in self.background_stars:
             b = (math.sin(t * speed + phase) + 1) / 2
-            c = int(80 + 135 * b)
+            c = int(70 + 130 * b)
             rr = r * (0.7 + b * 0.3)
             d_stars.ellipse([x - rr, y - rr, x + rr, y + rr], fill=c)
 
-        # 2. Render smooth flowing strands
+        # 2. Render Waves and Fountain Channels
         for strand in self.strands:
             pts = strand.points(t)
             if len(pts) < 2: continue
-            flicker = 0.85 + 0.15 * math.sin(t * 5.0 + strand.phase)
+            flicker = 0.85 + 0.15 * math.sin(t * 6.0 + strand.phase)
             c = int(strand.brightness * flicker)
             d_flow.line(pts, fill=c, width=strand.thickness, joint="curve")
 
-        # 3. Dense boundary sparkles + cross lens flares
+        # 3. Dense Heart Shell Profile Sparkles
         for sp in self.heart_sparkles:
             sp.update()
             b = sp.brightness(t)
@@ -205,31 +181,32 @@ class HeartApp:
             
             d_heart.ellipse([x - r, y - r, x + r, y + r], fill=c)
             
-            if b > 0.75:
-                d_heart.line([x - r * 4.5, y, x + r * 4.5, y], fill=int(c * 0.65))
-                d_heart.line([x, y - r * 4.5, x, y + r * 4.5], fill=int(c * 0.65))
+            # Anamorphic Cross Flare Glints
+            if b > 0.72:
+                d_heart.line([x - r * 5, y, x + r * 5, y], fill=int(c * 0.7))
+                d_heart.line([x, y - r * 5, x, y + r * 5], fill=int(c * 0.7))
 
-        # ---- Dynamic Glow Layering ----
+        # ---- Dynamic Light Bloom Filtering ----
         stars_glow = ImageChops.add(stars_l, stars_l.filter(ImageFilter.GaussianBlur(1)))
 
         flow_core = flow_l.filter(ImageFilter.GaussianBlur(0.4))
-        flow_halo = flow_l.filter(ImageFilter.GaussianBlur(3.0)).point(lambda v: int(v * 0.6))
-        flow_wide = flow_l.filter(ImageFilter.GaussianBlur(14)).point(lambda v: int(v * 0.22))
-        flow_glow = ImageChops.add(ImageChops.add(flow_core, flow_halo), flow_wide)
+        flow_halo = flow_l.filter(ImageFilter.GaussianBlur(3.0)).point(lambda v: int(v * 0.55))
+        flow_glow = ImageChops.add(flow_core, flow_halo)
 
-        heart_core = heart_l.filter(ImageFilter.GaussianBlur(0.6))
-        heart_halo = heart_l.filter(ImageFilter.GaussianBlur(4.5)).point(lambda v: int(v * 0.8))
-        heart_wide = heart_l.filter(ImageFilter.GaussianBlur(20)).point(lambda v: int(v * 0.4))
+        # Retain heart definition: smaller kernel sizes protect shape crispness
+        heart_core = heart_l.filter(ImageFilter.GaussianBlur(0.5))
+        heart_halo = heart_l.filter(ImageFilter.GaussianBlur(3.5)).point(lambda v: int(v * 0.85))
+        heart_wide = heart_l.filter(ImageFilter.GaussianBlur(12)).point(lambda v: int(v * 0.3))
         heart_glow = ImageChops.add(ImageChops.add(heart_core, heart_halo), heart_wide)
 
-        # ---- Additive Tint Blending ----
+        # ---- Layer Matrix Blending & Colorization ----
         def tint(layer, color):
             arr = np.asarray(layer, dtype=np.float32) / 255.0
             return np.stack([arr * color[0], arr * color[1], arr * color[2]], axis=-1)
 
-        rgb = tint(stars_glow, (230, 230, 245))
-        rgb += tint(flow_glow, (212, 226, 255)) # Balanced crisp white-silver glow matrix
-        rgb += tint(heart_glow, (255, 252, 250)) 
+        rgb = tint(stars_glow, (225, 225, 240))
+        rgb += tint(flow_glow, (205, 220, 255)) # Silver-blue ocean stream channels
+        rgb += tint(heart_glow, (255, 253, 252)) # Blinding crisp white heart shell core
 
         rgb = np.clip(rgb, 0, 255).astype(np.uint8)
         return Image.fromarray(rgb, mode="RGB")
