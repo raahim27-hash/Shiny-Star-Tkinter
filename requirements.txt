@@ -1,0 +1,4 @@
+numpy
+opencv-python
+pillow
+# pygame>=2.6.1
